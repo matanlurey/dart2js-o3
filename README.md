@@ -1,6 +1,6 @@
 # dart2js `-o3`
 
-An _experimental_ outlook to a more optimized Dart2JS output. 
+An _experimental_ dialect of Dart 2.0 for smaller JS binaries. 
 
 **NOTE**: This is not an official Dart or Google project.
 
@@ -62,6 +62,14 @@ example() {
   doThing();
 }
 ```
+
+Some types of errors that are not needed in `dart2js -o3`:
+
+* `UnsupportedError`
+* `UnimplementedError`
+* `RangeError`
+* `ConcurrentModificationError`
+* `ArgumentError`
 
 #### Example: `JsArray`
 
