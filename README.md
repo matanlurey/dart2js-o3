@@ -10,6 +10,8 @@ An _experimental_ dialect of Dart 2.0 for smaller JS binaries.
 * [Summary](#summary)
 * [Changes](#changes)
   * [Fatal error elimination](#fatal-error-elimination)
+  * [No dynamic type](#no-dynamic-type)
+  * [Cost free casts](#cost-free-casts)
 
 ## Summary
  
@@ -34,6 +36,112 @@ strongly optimized Dart2JS production binary.
 * Making JS-interop (interopability with existing JS libraries) easier
 
 ## Changes
+
+### No `dynamic` type
+
+> An example is available at [`dynamic_type`](examples/dynamic_type).
+
+Dart currently lacks a "union" type, or a way to provide limited type safety
+to polymorphic methods and invocations, which currently makes it _attractive_
+to use `dynamic` (lack of known type). When `dart2js` can't globally infer, it
+falls back assuming it could _literally_ be anything. For example:
+
+```dart
+HttpRequest.request('example.json').then((request) {
+  dynamic response = request.response;
+  print('Number of items: ${response.length}');
+});
+```
+
+This innocent-looking piece of code assumes that `response.length` could be
+invoked literally on anything, and since a `length` field is so common (nearly
+every "collection" type has it), this severely impacts tree-shaking.
+
+```js
+{
+  call$1: function(request) {
+    P.print("Number of items: " + H.S(J.get$length$asx(J.get$response$x(request))));
+  }
+}
+```
+
+```js
+J.get$length$asx = function(receiver) {
+  return J.getInterceptor$asx(receiver).get$length(receiver);
+};
+```
+
+```js
+J.getInterceptor$asx = function(receiver) {
+  if (typeof receiver == "string")
+    return J.JSString.prototype;
+  if (receiver == null)
+    return receiver;
+  if (receiver.constructor == Array)
+    return J.JSArray.prototype;
+  if (typeof receiver != "object") {
+    if (typeof receiver == "function")
+      return J.JavaScriptFunction.prototype;
+    return receiver;
+  }
+  if (receiver instanceof P.Object)
+    return receiver;
+  return J.getNativeInterceptor(receiver);
+};
+```
+
+... and finally, `get$length` is invoked. Unfortunately most types with
+`.length` are now retained in the final program. In **dart2js -o3**, there is
+no `dynamic` type, only `Object`, and everything is a static analysis error if
+there is an attempt to duck-type a method or field.
+
+It is [possible to cast](#cost-free-casts), however.
+
+### Cost free casts
+
+> An example is available at [`cost_of_casts`](examples/cost_of_casts).
+
+In Dart 2.0, and [without a dynamic type](#no-dynamic-type), casts are required
+to have valid programs. In some cases, a single type is _known_ but not
+otherwise expressable:
+
+```dart
+HttpRequest.request('example.json').then((request) {
+  // I own this API server, and know this is always the result.
+  var response = request.response as Map<String, String>;
+  var name = response['first_name'].toUpperCase();
+  print('My name is: $name!!!');
+});
+```
+
+Unfortunately this [compiles in cast errors](#no-fatal-errors):
+
+```js
+function(request) {
+  var t1 = P.String;
+  P.print("My name is: " + J.toUpperCase$0$s(H.subtypeCast(J.get$response$x(request), "$isMap", [t1, t1], "$asMap").$index(0, "first_name")) + "!!!");
+}
+```
+
+```js
+subtypeCast: function(object, isField, checks, asField) {
+  if (object == null)
+    return object;
+  if (H.checkSubtype(object, isField, checks, asField))
+    return object;
+  throw H.wrapException(H.CastErrorImplementation$(H.Primitives_objectTypeName(object), H.computeTypeName(isField, checks)));
+}
+```
+
+In `dart2js -o3`, there are no cast errors.
+
+An explicit `is` check is needed to have fallback behavior:
+
+```js
+function(request) {
+  P.print("My name is: " + request.get$response()['first_name'] + "!!!");
+}
+```
 
 ### Fatal error elimination
 
