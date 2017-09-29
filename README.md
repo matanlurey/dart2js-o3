@@ -9,9 +9,10 @@ An _experimental_ dialect of Dart 2.0 for smaller JS binaries.
 * [Contents](#contents)
 * [Summary](#summary)
 * [Changes](#changes)
-  * [Fatal error elimination](#fatal-error-elimination)
   * [No dynamic type](#no-dynamic-type)
   * [Cost free casts](#cost-free-casts)
+  * [Unused runtime code](#unused-runtime-code)
+  * [Fatal error elimination](#fatal-error-elimination)
 
 ## Summary
  
@@ -142,6 +143,30 @@ function(request) {
   P.print("My name is: " + request.get$response()['first_name'] + "!!!");
 }
 ```
+
+### Unused runtime code
+
+> An example is available at [`unused_code`](examples/unused_code).
+
+A simple "Hello World"-like application uses **44.4%** of code shipped as
+`main.dart.js` - meaning that 138Kb of produced code (unminified, ungzipped)
+is _completely unused at runtime_.
+
+[Using Chrome developer tools to calculate coverage][2], produces the following report:
+
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996311-cc38e3c4-a474-11e7-9838-69f1c4065b18.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996314-cc4cfc92-a474-11e7-8bb2-2fafef29cbe4.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996313-cc4b38bc-a474-11e7-9881-d0e2bacbb0b6.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996312-cc49d9d6-a474-11e7-8121-484a3c21f84a.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996317-cc4dea3a-a474-11e7-89bb-8f6772805eb4.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996316-cc4d2910-a474-11e7-9921-3f76fd68417a.png">
+<img width="680" src="https://user-images.githubusercontent.com/168174/30996315-cc4d18bc-a474-11e7-878e-b93ef53ad6c4.png">
+
+Dart2JS `-o3` should aggressively remove code that doesn't look reachable,
+potentially subsetting the language or requiring additional static annotations
+in order to remove all of the code.
+
+[2]: https://developers.google.com/web/updates/2017/04/devtools-release-notes#coverage
 
 ### Fatal error elimination
 
